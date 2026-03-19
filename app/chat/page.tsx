@@ -1044,11 +1044,13 @@ function InterruptCheckCard({
 
   const addCustom = () => {
     if (!customInput.trim()) return;
+    const val = customInput.trim();
+    const shortLabel = val.length > 8 ? val.slice(0, 8) + "…" : val;
     const newItem: InterruptItem = {
       type: "intrusion",
-      label: customInput.trim(),
-      desc: customInput.trim(),
-      if: `${customInput.trim()}이/가 생기면`,
+      label: shortLabel,
+      desc: val,
+      if: `${val}이/가 생기면`,
     };
     setCustomItems((prev) => [...prev, newItem]);
     // Auto-check the new item
@@ -1114,7 +1116,9 @@ function InterruptCheckCard({
         </div>
 
         {/* Custom interrupt input */}
-        <div className="flex gap-[7px] mt-2">
+        <div className="border-t border-dashed border-[rgba(0,0,0,0.12)] my-3" />
+        <div className="text-[11px] text-[#A8A39C] mb-1.5">직접 추가하기</div>
+        <div className="flex gap-[7px]">
           <input
             value={customInput}
             onChange={(e) => setCustomInput(e.target.value)}
