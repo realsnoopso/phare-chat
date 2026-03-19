@@ -169,7 +169,7 @@ export default function ChatPage() {
       if (s.step === "m1_title") {
         d({
           type: "SET_MISSIONS",
-          missions: [{ title: text, cond: "" }],
+          missions: [{ title: text, cond: "", subtasks: [], estimatedHours: "" }],
         });
         d({ type: "SET_LOADING", loading: true });
 
@@ -198,7 +198,44 @@ export default function ChatPage() {
       } else if (s.step === "m1_cond") {
         const missions = [{ ...s.missions[0], cond: text }];
         d({ type: "SET_MISSIONS", missions });
-        addPhare(d, "완료 조건 명확하네요 👍 오늘 또 다른 미션이 있나요?");
+        d({ type: "SET_LOADING", loading: true });
+
+        let reply = "";
+        try {
+          const sys = `사용자가 미션과 완료 조건을 입력했습니다. 이제 이 미션을 달성하기 위한 작은 단계들을 물어보세요.
+규칙:
+1. 완료 조건을 짧게 확인
+2. "이걸 끝내려면 어떤 단계들이 필요할까요?" 식으로 서브태스크 분해를 유도
+3. 1-2문장, 한국어. 이모지 쓰지 마세요.`;
+          reply = await callClaude(sys, `미션: ${missions[0].title}\n완료 조건: ${text}`, 150);
+        } catch { /* fallback */ }
+        if (!reply) reply = `완료 조건 명확하네요. 이걸 끝내려면 어떤 단계들이 필요할까요? 작은 단위로 쪼개서 알려주세요.`;
+
+        d({ type: "SET_LOADING", loading: false });
+        addPhare(d, escHtml(reply));
+        d({ type: "SET_STEP", step: "m1_subtasks" });
+        d({
+          type: "SET_QUICK_REPLIES",
+          chips: ["자료 조사 → 초안 작성 → 검토", "기획 → 디자인 → 개발", "직접 입력할게요"],
+        });
+      } else if (s.step === "m1_subtasks") {
+        const subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+        const missions = [...s.missions];
+        missions[0] = { ...missions[0], subtasks };
+        d({ type: "SET_MISSIONS", missions });
+
+        const subtaskList = subtasks.map((st, i) => `${i + 1}. ${escHtml(st)}`).join("<br>");
+        addPhare(d, `${subtaskList}<br><br>이 미션 전체에 대략 몇 시간 정도 걸릴 것 같나요?`);
+        d({ type: "SET_STEP", step: "m1_time" });
+        d({
+          type: "SET_QUICK_REPLIES",
+          chips: ["30분", "1시간", "2시간", "3시간 이상"],
+        });
+      } else if (s.step === "m1_time") {
+        const missions = [...s.missions];
+        missions[0] = { ...missions[0], estimatedHours: text };
+        d({ type: "SET_MISSIONS", missions });
+        addPhare(d, `${escHtml(text)} 예상이군요. 오늘 또 다른 미션이 있나요?`);
         d({ type: "SET_STEP", step: "m2_ask" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -227,7 +264,7 @@ export default function ChatPage() {
           });
         }
       } else if (s.step === "m2_title") {
-        const missions = [...s.missions, { title: text, cond: "" }];
+        const missions = [...s.missions, { title: text, cond: "", subtasks: [], estimatedHours: "" }];
         d({ type: "SET_MISSIONS", missions });
         d({ type: "SET_LOADING", loading: true });
 
@@ -251,6 +288,29 @@ export default function ChatPage() {
       } else if (s.step === "m2_cond") {
         const missions = [...s.missions];
         missions[1] = { ...missions[1], cond: text };
+        d({ type: "SET_MISSIONS", missions });
+        addPhare(d, "이 미션을 끝내려면 어떤 단계들이 필요할까요? 작은 단위로 쪼개서 알려주세요.");
+        d({ type: "SET_STEP", step: "m2_subtasks" });
+        d({
+          type: "SET_QUICK_REPLIES",
+          chips: ["자료 조사 → 초안 작성 → 검토", "기획 → 디자인 → 개발", "직접 입력할게요"],
+        });
+      } else if (s.step === "m2_subtasks") {
+        const subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+        const missions = [...s.missions];
+        missions[1] = { ...missions[1], subtasks };
+        d({ type: "SET_MISSIONS", missions });
+
+        const subtaskList = subtasks.map((st, i) => `${i + 1}. ${escHtml(st)}`).join("<br>");
+        addPhare(d, `${subtaskList}<br><br>이 미션은 대략 몇 시간 정도 걸릴 것 같나요?`);
+        d({ type: "SET_STEP", step: "m2_time" });
+        d({
+          type: "SET_QUICK_REPLIES",
+          chips: ["30분", "1시간", "2시간", "3시간 이상"],
+        });
+      } else if (s.step === "m2_time") {
+        const missions = [...s.missions];
+        missions[1] = { ...missions[1], estimatedHours: text };
         d({ type: "SET_MISSIONS", missions });
         addPhare(d, "완벽해요. 이제 오늘 예상 인터럽트를 분석할게요.");
         d({ type: "SET_STEP", step: "cp_gen" });

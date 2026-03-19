@@ -2,9 +2,13 @@ export type Step =
   | "greeting"
   | "m1_title"
   | "m1_cond"
+  | "m1_subtasks"
+  | "m1_time"
   | "m2_ask"
   | "m2_title"
   | "m2_cond"
+  | "m2_subtasks"
+  | "m2_time"
   | "cp_gen"
   | "interrupt_check"
   | "ifthen_input"
@@ -23,6 +27,8 @@ export type IntSubStep =
 export interface Mission {
   title: string;
   cond: string;
+  subtasks: string[];
+  estimatedHours: string;
 }
 
 export interface InterruptItem {
