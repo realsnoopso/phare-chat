@@ -1030,6 +1030,7 @@ function InterruptCheckCard({
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [customItems, setCustomItems] = useState<InterruptItem[]>([]);
   const [customInput, setCustomInput] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const allItems = [...interrupts, ...customItems];
 
@@ -1116,29 +1117,37 @@ function InterruptCheckCard({
         </div>
 
         {/* Custom interrupt input */}
-        <div className="border-t border-dashed border-[rgba(0,0,0,0.12)] my-3" />
-        <div className="text-[11px] text-[#A8A39C] mb-1.5">직접 추가하기</div>
-        <div className="flex gap-[7px]">
-          <input
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing && customInput.trim()) {
-                addCustom();
-                e.preventDefault();
-              }
-            }}
-            placeholder="직접 추가..."
-            className="flex-1 text-[13px] px-[11px] py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.16)] bg-[#F0EEE9] text-[#1A1917] outline-none"
-            style={{ fontSize: "16px" }}
-          />
+        {!showCustomInput ? (
           <button
-            onClick={addCustom}
-            className="px-3 py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.16)] bg-[#F0EEE9] text-[13px] text-[#6B6760] cursor-pointer whitespace-nowrap"
+            onClick={() => setShowCustomInput(true)}
+            className="flex items-center gap-1.5 mt-2 px-3 py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.16)] bg-transparent text-[13px] text-[#6B6760] cursor-pointer transition-colors duration-150 ease-out hover:bg-[#F0EEE9] hover:text-[#1A1917] min-h-[44px] w-full justify-center"
           >
-            추가
+            <span className="text-base leading-none">+</span> 직접 추가
           </button>
-        </div>
+        ) : (
+          <div className="flex gap-[7px] mt-2 animate-in fade-in duration-150 ease-out">
+            <input
+              autoFocus
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing && customInput.trim()) {
+                  addCustom();
+                  e.preventDefault();
+                }
+              }}
+              placeholder="예: 택배 도착, 전화 올 수 있음..."
+              className="flex-1 text-[13px] px-[11px] py-2 rounded-lg border border-[rgba(0,0,0,0.16)] bg-white text-[#1A1917] outline-none focus:border-[#1A1917] transition-colors duration-150 ease-out"
+              style={{ fontSize: "16px" }}
+            />
+            <button
+              onClick={addCustom}
+              className="px-3 py-2 rounded-lg border-none bg-[#1A1917] text-white text-[13px] cursor-pointer whitespace-nowrap min-h-[44px] transition-colors duration-150 ease-out hover:bg-[#333] active:scale-[0.97]"
+            >
+              추가
+            </button>
+          </div>
+        )}
 
         <button
           onClick={handleConfirm}
