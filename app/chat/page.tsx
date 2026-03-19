@@ -171,7 +171,20 @@ export default function ChatPage() {
           type: "SET_MISSIONS",
           missions: [{ title: text, cond: "" }],
         });
-        addPhare(d, `"${escHtml(text)}" — 좋아요! 이 미션이 완료됐다는 걸 어떻게 알 수 있을까요? 완료 조건을 알려주세요.`);
+        d({ type: "SET_LOADING", loading: true });
+
+        let reply = "";
+        try {
+          const sys = `사용자가 오늘의 미션 제목을 입력했습니다. 아래 규칙을 따르세요:
+1. 미션 제목을 짧게 자연스럽게 확인 (예: "포트폴리오 문서 작성이군요!")
+2. 이어서 완료 조건을 물어보세요 (예: "어떤 상태가 되면 완료인가요?")
+3. 1-2문장, 친근하게, 한국어. 이모지 사용하지 마세요.`;
+          reply = await callClaude(sys, text, 150);
+        } catch { /* fallback below */ }
+        if (!reply) reply = `"${text}" — 좋아요! 이 미션이 완료됐다는 걸 어떻게 알 수 있을까요?`;
+
+        d({ type: "SET_LOADING", loading: false });
+        addPhare(d, escHtml(reply));
         d({ type: "SET_STEP", step: "m1_cond" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -216,7 +229,20 @@ export default function ChatPage() {
       } else if (s.step === "m2_title") {
         const missions = [...s.missions, { title: text, cond: "" }];
         d({ type: "SET_MISSIONS", missions });
-        addPhare(d, `"${escHtml(text)}" — 이 미션의 완료 조건은 뭔가요?`);
+        d({ type: "SET_LOADING", loading: true });
+
+        let reply = "";
+        try {
+          const sys = `사용자가 두 번째 미션 제목을 입력했습니다. 아래 규칙을 따르세요:
+1. 미션 제목을 짧게 자연스럽게 확인
+2. 이어서 완료 조건을 물어보세요
+3. 1문장, 친근하게, 한국어. 이모지 사용하지 마세요.`;
+          reply = await callClaude(sys, text, 150);
+        } catch { /* fallback below */ }
+        if (!reply) reply = `"${text}" — 이 미션의 완료 조건은 뭔가요?`;
+
+        d({ type: "SET_LOADING", loading: false });
+        addPhare(d, escHtml(reply));
         d({ type: "SET_STEP", step: "m2_cond" });
         d({
           type: "SET_QUICK_REPLIES",
