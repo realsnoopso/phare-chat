@@ -196,7 +196,7 @@ export default function ChatPage() {
         if (
           lower.includes("아니") ||
           lower.includes("없") ||
-          lower.includes("하나")
+          lower.includes("하나면")
         ) {
           addPhare(
             d,
