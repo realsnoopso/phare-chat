@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { auth } from "@/lib/auth";
 
-const client = new Anthropic();
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -13,19 +15,20 @@ export async function POST(req: NextRequest) {
   try {
     const { system, user, maxTokens } = await req.json();
 
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: maxTokens || 800,
-      system,
-      messages: [{ role: "user", content: user }],
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
     });
 
-    const text =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const text = completion.choices[0]?.message?.content || "";
 
     return NextResponse.json({ text });
   } catch (error) {
-    console.error("Claude API error:", error);
+    console.error("OpenAI API error:", error);
     return NextResponse.json(
       { error: "Failed to get AI response" },
       { status: 500 }
