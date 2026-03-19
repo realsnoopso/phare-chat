@@ -13,6 +13,7 @@ export type Step =
   | "interrupt_check"
   | "ifthen_input"
   | "cp_confirm"
+  | "task_list"
   | "focus"
   | "interrupt"
   | "retro";
@@ -76,6 +77,9 @@ export interface ChatState {
   quickReplies: string[];
   stepIndex: number;
   showFocus: boolean;
+  showTaskList: boolean;
+  activeTaskLabel: string;
+  completedTasks: Set<string>;
   timerSec: number;
   isLoading: boolean;
 }
@@ -99,6 +103,9 @@ export const initialState: ChatState = {
   quickReplies: [],
   stepIndex: 0,
   showFocus: false,
+  showTaskList: false,
+  activeTaskLabel: "",
+  completedTasks: new Set(),
   timerSec: 25 * 60,
   isLoading: false,
 };

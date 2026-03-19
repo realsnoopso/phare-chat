@@ -35,6 +35,9 @@ type Action =
   | { type: "SET_IFTHEN"; ifthen: IfThen[] }
   | { type: "SET_IFTHEN_INDEX"; idx: number }
   | { type: "SET_SHOW_FOCUS"; show: boolean }
+  | { type: "SET_SHOW_TASK_LIST"; show: boolean }
+  | { type: "SET_ACTIVE_TASK"; label: string }
+  | { type: "COMPLETE_TASK"; key: string }
   | { type: "SET_TIMER"; sec: number }
   | { type: "SET_INT_SUB_STEP"; sub: ChatState["intSubStep"] }
   | { type: "SET_INT_TYPE"; val: string }
@@ -70,6 +73,12 @@ function reducer(state: ChatState, action: Action): ChatState {
       return { ...state, ifthenIndex: action.idx };
     case "SET_SHOW_FOCUS":
       return { ...state, showFocus: action.show };
+    case "SET_SHOW_TASK_LIST":
+      return { ...state, showTaskList: action.show };
+    case "SET_ACTIVE_TASK":
+      return { ...state, activeTaskLabel: action.label };
+    case "COMPLETE_TASK":
+      return { ...state, completedTasks: new Set([...state.completedTasks, action.key]) };
     case "SET_TIMER":
       return { ...state, timerSec: action.sec };
     case "SET_INT_SUB_STEP":
@@ -629,17 +638,112 @@ export default function ChatPage() {
           </button>
         </div>
 
+        {/* Task List Overlay */}
+        {state.showTaskList && (
+          <div className="absolute inset-0 bg-[#F7F6F3] flex flex-col z-10 animate-in fade-in duration-200 ease-out">
+            <div className="px-[18px] pt-4 pb-3 flex justify-between items-center flex-shrink-0">
+              <button
+                className="text-[13px] text-[#6B6760] bg-transparent border-none cursor-pointer flex items-center gap-1 min-h-[44px] font-[inherit]"
+                onClick={() => d({ type: "SET_SHOW_TASK_LIST", show: false })}
+              >
+                ← 채팅으로
+              </button>
+              <span className="text-[17px] font-bold tracking-tight text-[#1A1917]">오늘의 태스크</span>
+              <div className="w-[60px]" />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-[18px] pb-6" style={{ scrollbarWidth: "none" }}>
+              {state.missions.map((mission, mi) => (
+                <div key={mi} className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-[#1D9E75] flex-shrink-0" />
+                    <h3 className="text-[15px] font-semibold text-[#1A1917]">{mission.title}</h3>
+                    {mission.estimatedHours && (
+                      <span className="text-[11px] text-[#A8A39C] bg-white border border-[rgba(0,0,0,0.09)] px-2 py-0.5 rounded-full ml-auto flex-shrink-0">
+                        {mission.estimatedHours}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12px] text-[#6B6760] mb-3 pl-4">
+                    완료 조건: {mission.cond}
+                  </div>
+                  <div className="flex flex-col gap-2 pl-1">
+                    {mission.subtasks.map((task, ti) => {
+                      const taskKey = `${mi}-${ti}`;
+                      const isDone = state.completedTasks.has(taskKey);
+                      const isActive = state.activeTaskLabel === taskKey && state.showFocus;
+                      return (
+                        <button
+                          key={ti}
+                          onClick={() => {
+                            if (isDone) return;
+                            d({ type: "SET_ACTIVE_TASK", label: taskKey });
+                            d({ type: "SET_SHOW_TASK_LIST", show: false });
+                            d({ type: "SET_SHOW_FOCUS", show: true });
+                            d({ type: "SET_STEP", step: "focus" });
+                            startTimer();
+                          }}
+                          disabled={isDone}
+                          className={`flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all duration-150 ease-out min-h-[48px] cursor-pointer
+                            ${isDone
+                              ? "bg-[#E1F5EE] border-[#1D9E75]/20 opacity-70"
+                              : "bg-white border-[rgba(0,0,0,0.09)] hover:border-[#1D9E75] hover:shadow-sm active:scale-[0.98]"
+                            }`}
+                        >
+                          <div
+                            className="w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors duration-150 ease-out"
+                            style={{
+                              borderColor: isDone ? "#1D9E75" : "rgba(0,0,0,0.16)",
+                              background: isDone ? "#1D9E75" : "transparent",
+                            }}
+                          >
+                            {isDone && (
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <path d="M2 5L4.2 7.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className={`text-[14px] ${isDone ? "line-through text-[#A8A39C]" : "text-[#1A1917]"}`}>
+                              {task}
+                            </div>
+                          </div>
+                          {!isDone && (
+                            <div className="text-[11px] text-[#1D9E75] font-medium flex-shrink-0">
+                              시작 →
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <button
+                className="w-full py-3 mt-2 bg-transparent text-[#6B6760] border border-[rgba(0,0,0,0.09)] rounded-2xl text-sm cursor-pointer transition-all duration-150 ease-out hover:text-[#1A1917] hover:border-[rgba(0,0,0,0.16)] min-h-[44px]"
+                onClick={goRetro}
+              >
+                저녁 회고 →
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Focus Overlay */}
         {state.showFocus && (
           <div className="absolute inset-0 bg-[#F7F6F3] flex flex-col z-10 animate-in fade-in duration-200 ease-out">
             <div className="px-[18px] pt-4 flex justify-between items-center">
               <button
                 className="text-[13px] text-[#6B6760] bg-transparent border-none cursor-pointer flex items-center gap-1 min-h-[44px] font-[inherit]"
-                onClick={() =>
-                  d({ type: "SET_SHOW_FOCUS", show: false })
-                }
+                onClick={() => {
+                  if (timerRef.current) clearInterval(timerRef.current);
+                  d({ type: "SET_SHOW_FOCUS", show: false });
+                  d({ type: "SET_SHOW_TASK_LIST", show: true });
+                  d({ type: "SET_STEP", step: "task_list" });
+                }}
               >
-                ← 채팅으로
+                ← 태스크 목록
               </button>
               <Badge
                 variant="outline"
@@ -651,12 +755,17 @@ export default function ChatPage() {
             </div>
 
             <div className="flex-1 flex flex-col px-[18px] pt-5">
-              <h2 className="text-lg font-semibold text-[#1A1917] mb-1">
-                {state.missions[0]?.title}
-              </h2>
-              <p className="text-[13px] text-[#6B6760] mb-7">
-                {state.missions[0]?.cond}
-              </p>
+              {(() => {
+                const [mi, ti] = state.activeTaskLabel.split("-").map(Number);
+                const mission = state.missions[mi];
+                const taskName = mission?.subtasks?.[ti] || mission?.title || "";
+                return (
+                  <>
+                    <h2 className="text-lg font-semibold text-[#1A1917] mb-1">{taskName}</h2>
+                    <p className="text-[13px] text-[#6B6760] mb-7">{mission?.title}</p>
+                  </>
+                );
+              })()}
 
               {/* Timer Ring */}
               <div className="flex justify-center mb-6">
@@ -725,16 +834,22 @@ export default function ChatPage() {
               </div>
 
               <button
-                className="w-full py-3.5 bg-[#FAECE7] text-[#D85A30] border-[1.5px] border-[#F5C4B3] rounded-2xl text-[15px] font-semibold cursor-pointer transition-all duration-150 ease-out hover:bg-[#F5C4B3] active:scale-[0.98] flex items-center justify-center gap-2 mt-3 min-h-[48px]"
+                className="w-full py-3.5 bg-[#1D9E75] text-white border-none rounded-2xl text-[15px] font-semibold cursor-pointer transition-all duration-150 ease-out hover:bg-[#0F6E56] active:scale-[0.98] flex items-center justify-center gap-2 mt-3 min-h-[48px]"
+                onClick={() => {
+                  if (timerRef.current) clearInterval(timerRef.current);
+                  d({ type: "COMPLETE_TASK", key: state.activeTaskLabel });
+                  d({ type: "SET_SHOW_FOCUS", show: false });
+                  d({ type: "SET_SHOW_TASK_LIST", show: true });
+                  d({ type: "SET_STEP", step: "task_list" });
+                }}
+              >
+                ✓ 이 태스크 완료
+              </button>
+              <button
+                className="w-full py-3.5 bg-[#FAECE7] text-[#D85A30] border-[1.5px] border-[#F5C4B3] rounded-2xl text-[15px] font-semibold cursor-pointer transition-all duration-150 ease-out hover:bg-[#F5C4B3] active:scale-[0.98] flex items-center justify-center gap-2 mt-2 min-h-[48px]"
                 onClick={triggerInterrupt}
               >
                 ⚡ 인터럽트 발생 — 메모하기
-              </button>
-              <button
-                className="w-full py-3 mt-2 bg-transparent text-[#6B6760] border border-[rgba(0,0,0,0.09)] rounded-2xl text-sm cursor-pointer transition-all duration-150 ease-out hover:text-[#1A1917] hover:border-[rgba(0,0,0,0.16)] min-h-[44px]"
-                onClick={goRetro}
-              >
-                저녁 회고 →
               </button>
             </div>
           </div>
@@ -949,18 +1064,14 @@ interrupts 2-3개. 한국어.`;
     d: React.Dispatch<Action>,
     sRef: React.MutableRefObject<ChatState>
   ) {
-    d({ type: "SET_LOADING", loading: true });
-    await delay(500);
-    d({ type: "SET_LOADING", loading: false });
     addPhare(
       d,
-      "좋아요! 집중 모드를 시작할게요. 화면 상단의 집중 모드로 이동합니다.<br><br>인터럽트가 오면 오렌지 버튼을 누르고 메모하세요 ⚡"
+      "좋아요! 오늘의 태스크 목록을 정리했어요. 작업할 태스크를 선택하면 집중 타이머가 시작됩니다."
     );
     d({ type: "SET_STEP_INDEX", idx: 2 });
-    await delay(800);
-    d({ type: "SET_SHOW_FOCUS", show: true });
-    d({ type: "SET_STEP", step: "focus" });
-    startTimer();
+    await delay(600);
+    d({ type: "SET_SHOW_TASK_LIST", show: true });
+    d({ type: "SET_STEP", step: "task_list" });
   }
 
   async function handleInterruptFlow(
@@ -1050,12 +1161,11 @@ interrupts 2-3개. 한국어.`;
       });
     } else if (s.intSubStep === "done") {
       if (text.includes("재개") || text.includes("완료")) {
-        addPhare(d, "좋아요! 재개 노트를 보면서 바로 시작하세요 🟢");
+        addPhare(d, "좋아요! 태스크 목록에서 이어서 작업할 항목을 선택하세요 🟢");
         d({ type: "SET_STEP_INDEX", idx: 2 });
-        d({ type: "SET_STEP", step: "focus" });
+        d({ type: "SET_STEP", step: "task_list" });
         await delay(600);
-        d({ type: "SET_SHOW_FOCUS", show: true });
-        startTimer();
+        d({ type: "SET_SHOW_TASK_LIST", show: true });
       } else {
         addPhare(d, "알겠어요. 처리 끝나면 다시 알려주세요!");
       }
