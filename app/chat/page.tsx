@@ -1043,20 +1043,39 @@ function InterruptCheckCard({
     });
   };
 
-  const addCustom = () => {
-    if (!customInput.trim()) return;
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+
+  const addCustom = async () => {
+    if (!customInput.trim() || isAddingCustom) return;
     const val = customInput.trim();
-    const shortLabel = val.length > 8 ? val.slice(0, 8) + "…" : val;
+    setCustomInput("");
+    setIsAddingCustom(true);
+
+    let shortLabel = val.length > 6 ? val.slice(0, 6) + "…" : val;
+    let intType: InterruptItem["type"] = "intrusion";
+
+    try {
+      const sys = `사용자가 인터럽트 상황을 입력했습니다. 아래 JSON만 출력하세요:
+{"label":"2-4글자 축약 라벨","type":"intrusion|distraction|internal"}
+- label: 핵심 키워드만 (예: "식곤증", "주식확인", "택배", "전화")
+- type: intrusion(외부 방해), distraction(주의 분산), internal(내부 잡생각) 중 선택
+JSON만 출력. 다른 텍스트 없이.`;
+      const raw = await callClaude(sys, val, 100);
+      const clean = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (parsed.label) shortLabel = parsed.label;
+      if (parsed.type) intType = parsed.type;
+    } catch { /* use fallback */ }
+
     const newItem: InterruptItem = {
-      type: "intrusion",
+      type: intType,
       label: shortLabel,
       desc: val,
       if: `${val}이/가 생기면`,
     };
     setCustomItems((prev) => [...prev, newItem]);
-    // Auto-check the new item
     setChecked((prev) => new Set([...prev, allItems.length]));
-    setCustomInput("");
+    setIsAddingCustom(false);
   };
 
   const handleConfirm = () => {
@@ -1142,9 +1161,10 @@ function InterruptCheckCard({
             />
             <button
               onClick={addCustom}
-              className="px-3 py-2 rounded-lg border-none bg-[#1A1917] text-white text-[13px] cursor-pointer whitespace-nowrap min-h-[44px] transition-colors duration-150 ease-out hover:bg-[#333] active:scale-[0.97]"
+              disabled={isAddingCustom}
+              className="px-3 py-2 rounded-lg border-none bg-[#1A1917] text-white text-[13px] cursor-pointer whitespace-nowrap min-h-[44px] transition-colors duration-150 ease-out hover:bg-[#333] active:scale-[0.97] disabled:opacity-50"
             >
-              추가
+              {isAddingCustom ? "..." : "추가"}
             </button>
           </div>
         )}
