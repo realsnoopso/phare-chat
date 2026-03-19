@@ -166,20 +166,7 @@ export default function ChatPage() {
           type: "SET_MISSIONS",
           missions: [{ title: text, cond: "" }],
         });
-        d({ type: "SET_LOADING", loading: true });
-
-        let prompt = "";
-        try {
-          const sys = `당신은 phare 앱입니다. 사용자가 입력한 미션 제목을 보고, 짧고 자연스럽게 확인하며 완료 조건을 물어보세요. 1문장으로, 친근하게. 한국어.`;
-          prompt = await callClaude(sys, text, 200);
-        } catch {
-          prompt = `"${text}"를 오늘 해낼 거군요! 이 미션이 완료됐다는 걸 어떻게 알 수 있을까요?`;
-        }
-        if (!prompt)
-          prompt = `"${text}"를 오늘 해낼 거군요! 이 미션이 완료됐다는 걸 어떻게 알 수 있을까요?`;
-
-        d({ type: "SET_LOADING", loading: false });
-        addPhare(d, escHtml(prompt));
+        addPhare(d, `"${escHtml(text)}" — 좋아요! 이 미션이 완료됐다는 걸 어떻게 알 수 있을까요? 완료 조건을 알려주세요.`);
         d({ type: "SET_STEP", step: "m1_cond" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -193,24 +180,7 @@ export default function ChatPage() {
       } else if (s.step === "m1_cond") {
         const missions = [{ ...s.missions[0], cond: text }];
         d({ type: "SET_MISSIONS", missions });
-        d({ type: "SET_LOADING", loading: true });
-
-        let reply = "";
-        try {
-          const sys = `당신은 phare 앱입니다. 사용자가 미션 완료 조건을 입력했습니다. 짧게 인정하고, 두 번째 미션이 있는지 물어보세요. 1-2문장, 자연스럽게. 한국어.`;
-          reply = await callClaude(
-            sys,
-            `미션: ${missions[0].title}\n완료 조건: ${text}`,
-            200
-          );
-        } catch {
-          reply = "완료 조건 명확하네요. 오늘 또 다른 미션이 있나요?";
-        }
-        if (!reply)
-          reply = "완료 조건 명확하네요. 오늘 또 다른 미션이 있나요?";
-
-        d({ type: "SET_LOADING", loading: false });
-        addPhare(d, escHtml(reply));
+        addPhare(d, "완료 조건 명확하네요 👍 오늘 또 다른 미션이 있나요?");
         d({ type: "SET_STEP", step: "m2_ask" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -241,20 +211,7 @@ export default function ChatPage() {
       } else if (s.step === "m2_title") {
         const missions = [...s.missions, { title: text, cond: "" }];
         d({ type: "SET_MISSIONS", missions });
-        d({ type: "SET_LOADING", loading: true });
-
-        let reply = "";
-        try {
-          const sys =
-            "사용자가 두 번째 미션을 입력했습니다. 짧게 확인하고 완료 조건을 물어보세요. 1문장, 한국어.";
-          reply = await callClaude(sys, text, 150);
-        } catch {
-          reply = `"${text}"! 이 미션의 완료 조건은요?`;
-        }
-        if (!reply) reply = `"${text}"! 이 미션의 완료 조건은요?`;
-
-        d({ type: "SET_LOADING", loading: false });
-        addPhare(d, escHtml(reply));
+        addPhare(d, `"${escHtml(text)}" — 이 미션의 완료 조건은 뭔가요?`);
         d({ type: "SET_STEP", step: "m2_cond" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -955,47 +912,17 @@ interrupts 2-3개. 한국어.`;
       });
     } else if (s.intSubStep === "nextAction") {
       d({ type: "SET_NEXT_ACTION", val: text });
-      d({ type: "SET_LOADING", loading: true });
 
-      let resumePlan: ChatState["resumePlan"];
-      try {
-        const sys = `당신은 phare 앱입니다. 사용자의 인터럽트 메모를 바탕으로 재개 플랜을 자연스럽게 정리하고, 격려 한 마디를 더해 응답하세요.
-마지막에 아래 JSON을 포함하세요:
-<plan>{"whereAt":"요약","hardPart":"어려운 점 또는 빈 문자열","nextAction":"구체적 다음 액션"}</plan>
-텍스트 + JSON 모두 한국어.`;
-        const raw = await callClaude(
-          sys,
-          `인터럽트: ${s.intType}\n상태: ${text}\n어려운 점: ${s.hardPart || "없음"}\n다음 액션: ${text}`,
-          400
-        );
+      const resumePlan = {
+        whereAt: s.whereAt,
+        hardPart: s.hardPart,
+        nextAction: text,
+      };
 
-        const jsonMatch = raw.match(/<plan>([\s\S]*?)<\/plan>/);
-        if (jsonMatch) {
-          resumePlan = JSON.parse(jsonMatch[1]);
-        } else {
-          resumePlan = {
-            whereAt: s.whereAt,
-            hardPart: s.hardPart,
-            nextAction: text,
-          };
-        }
-        const textPart = raw
-          .replace(/<plan>[\s\S]*?<\/plan>/, "")
-          .trim();
-        d({ type: "SET_LOADING", loading: false });
-        if (textPart) addPhare(d, escHtml(textPart));
-      } catch {
-        resumePlan = {
-          whereAt: s.whereAt,
-          hardPart: s.hardPart,
-          nextAction: text,
-        };
-        d({ type: "SET_LOADING", loading: false });
-        addPhare(
-          d,
-          "메모 저장했어요. 인터럽트를 처리하고 돌아오면 바로 재개할 수 있어요 💪"
-        );
-      }
+      addPhare(
+        d,
+        "메모 저장했어요. 인터럽트를 처리하고 돌아오면 바로 재개할 수 있어요 💪"
+      );
 
       d({ type: "SET_RESUME_PLAN", plan: resumePlan });
 
@@ -1073,24 +1000,14 @@ interrupts 2-3개. 한국어.`;
     );
 
     await delay(500);
-    d({ type: "SET_LOADING", loading: true });
 
-    try {
-      const sys = `당신은 phare 앱입니다. 사용자의 하루를 보고 따뜻하고 구체적인 인사이트를 2-3문장으로 주세요. 칭찬과 내일을 위한 힌트 포함. 한국어. 텍스트만.`;
-      const insight = await callClaude(
-        sys,
-        `미션: ${s.missions.map((m) => m.title).join(", ")}\n인터럽트: ${s.interruptCount}회\n캡처노트: ${s.captureNotes.join(", ") || "없음"}`,
-        300
-      );
-      d({ type: "SET_LOADING", loading: false });
-      addPhare(d, escHtml(insight || "오늘도 수고했어요. 내일도 함께 시작해요 🌱"));
-    } catch {
-      d({ type: "SET_LOADING", loading: false });
-      addPhare(
-        d,
-        "오늘도 수고했어요. 내일 CP에 오늘 패턴이 반영될 거예요 🌱"
-      );
-    }
+    const intMsg = s.interruptCount > 0
+      ? `인터럽트 ${s.interruptCount}회를 잘 관리했어요.`
+      : "인터럽트 없이 집중한 하루였네요!";
+    addPhare(
+      d,
+      `오늘도 수고했어요 🌱 ${intMsg} 내일은 오늘의 패턴을 참고해서 더 나은 하루를 만들어봐요.`
+    );
 
     await delay(400);
     addPhare(
