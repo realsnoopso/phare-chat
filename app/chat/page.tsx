@@ -216,16 +216,40 @@ export default function ChatPage() {
         d({ type: "SET_STEP", step: "m1_subtasks" });
         d({
           type: "SET_QUICK_REPLIES",
-          chips: ["자료 조사 → 초안 작성 → 검토", "기획 → 디자인 → 개발", "직접 입력할게요"],
+          chips: ["먼저 자료 조사하고 초안 쓴 다음 검토받을 예정", "직접 입력할게요"],
         });
       } else if (s.step === "m1_subtasks") {
-        const subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+        d({ type: "SET_LOADING", loading: true });
+
+        let subtasks: string[] = [];
+        let aiReply = "";
+        try {
+          const sys = `사용자가 미션을 달성하기 위한 과정을 자유롭게 설명했습니다. 아래 규칙을 따르세요:
+1. 사용자의 설명을 분석해서 실행 가능한 서브태스크 2-5개로 정리
+2. 반드시 아래 JSON만 출력. 다른 텍스트 없이:
+{"tasks":["태스크1","태스크2","태스크3"],"reply":"정리한 결과를 자연스럽게 확인하는 1문장 (한국어, 이모지 없이)"}
+- tasks: 구체적이고 실행 가능한 단위 (동사로 끝나게)
+- reply: 예시 "이렇게 3단계로 나눠볼게요" 같은 확인 문장`;
+          const raw = await callClaude(sys, `미션: ${s.missions[0].title}\n완료조건: ${s.missions[0].cond}\n사용자 입력: ${text}`, 300);
+          const clean = raw.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(clean);
+          subtasks = parsed.tasks || [];
+          aiReply = parsed.reply || "";
+        } catch { /* fallback */ }
+
+        if (subtasks.length === 0) {
+          subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+          if (subtasks.length === 0) subtasks = [text];
+        }
+        if (!aiReply) aiReply = "이렇게 정리해볼게요.";
+
         const missions = [...s.missions];
         missions[0] = { ...missions[0], subtasks };
         d({ type: "SET_MISSIONS", missions });
+        d({ type: "SET_LOADING", loading: false });
 
         const subtaskList = subtasks.map((st, i) => `${i + 1}. ${escHtml(st)}`).join("<br>");
-        addPhare(d, `${subtaskList}<br><br>이 미션 전체에 대략 몇 시간 정도 걸릴 것 같나요?`);
+        addPhare(d, `${escHtml(aiReply)}<br><br>${subtaskList}<br><br>이 미션 전체에 대략 몇 시간 정도 걸릴 것 같나요?`);
         d({ type: "SET_STEP", step: "m1_time" });
         d({
           type: "SET_QUICK_REPLIES",
@@ -293,16 +317,38 @@ export default function ChatPage() {
         d({ type: "SET_STEP", step: "m2_subtasks" });
         d({
           type: "SET_QUICK_REPLIES",
-          chips: ["자료 조사 → 초안 작성 → 검토", "기획 → 디자인 → 개발", "직접 입력할게요"],
+          chips: ["먼저 자료 조사하고 초안 쓴 다음 검토받을 예정", "직접 입력할게요"],
         });
       } else if (s.step === "m2_subtasks") {
-        const subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+        d({ type: "SET_LOADING", loading: true });
+
+        let subtasks: string[] = [];
+        let aiReply = "";
+        try {
+          const sys = `사용자가 미션을 달성하기 위한 과정을 자유롭게 설명했습니다. 아래 규칙을 따르세요:
+1. 사용자의 설명을 분석해서 실행 가능한 서브태스크 2-5개로 정리
+2. 반드시 아래 JSON만 출력. 다른 텍스트 없이:
+{"tasks":["태스크1","태스크2","태스크3"],"reply":"정리한 결과를 자연스럽게 확인하는 1문장 (한국어, 이모지 없이)"}`;
+          const raw = await callClaude(sys, `미션: ${s.missions[1].title}\n완료조건: ${s.missions[1].cond}\n사용자 입력: ${text}`, 300);
+          const clean = raw.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(clean);
+          subtasks = parsed.tasks || [];
+          aiReply = parsed.reply || "";
+        } catch { /* fallback */ }
+
+        if (subtasks.length === 0) {
+          subtasks = text.split(/[→,\n]/).map((s) => s.trim()).filter(Boolean);
+          if (subtasks.length === 0) subtasks = [text];
+        }
+        if (!aiReply) aiReply = "이렇게 정리해볼게요.";
+
         const missions = [...s.missions];
         missions[1] = { ...missions[1], subtasks };
         d({ type: "SET_MISSIONS", missions });
+        d({ type: "SET_LOADING", loading: false });
 
         const subtaskList = subtasks.map((st, i) => `${i + 1}. ${escHtml(st)}`).join("<br>");
-        addPhare(d, `${subtaskList}<br><br>이 미션은 대략 몇 시간 정도 걸릴 것 같나요?`);
+        addPhare(d, `${escHtml(aiReply)}<br><br>${subtaskList}<br><br>이 미션은 대략 몇 시간 정도 걸릴 것 같나요?`);
         d({ type: "SET_STEP", step: "m2_time" });
         d({
           type: "SET_QUICK_REPLIES",
