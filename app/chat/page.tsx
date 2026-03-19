@@ -98,7 +98,12 @@ function reducer(state: ChatState, action: Action): ChatState {
           {
             id: genId(),
             role: "phare",
-            html: "안녕하세요 👋<br>오늘 하루를 시작해볼게요.<br><br>오늘 가장 끝내고 싶은 일이 뭔가요?",
+            html: (() => {
+              const now = new Date();
+              const days = ["일", "월", "화", "수", "목", "금", "토"];
+              const dateStr = `${now.getMonth() + 1}월 ${now.getDate()}일 (${days[now.getDay()]})`;
+              return `안녕하세요 👋<br>${dateStr}, 오늘 하루를 시작해볼게요.<br><br>오늘 가장 끝내고 싶은 일이 뭔가요?`;
+            })(),
           },
         ],
         quickReplies: ["보고서 작성", "디자인 작업", "코드 리뷰", "미팅 준비"],
@@ -393,6 +398,27 @@ export default function ChatPage() {
             </div>
           ))}
 
+          {/* Interrupt Check Cards (React component) */}
+          {state.step === "interrupt_check" && state.interrupts.length > 0 && (
+            <InterruptCheckCard
+              interrupts={state.interrupts}
+              onConfirm={(selected) => {
+                const sel = selected.length > 0 ? selected : state.interrupts;
+                d({ type: "SET_SELECTED_INTERRUPTS", selected: sel });
+                const ifthen = sel.map((it) => ({ if: it.if, then: "" }));
+                d({ type: "SET_IFTHEN", ifthen });
+                d({ type: "SET_IFTHEN_INDEX", idx: 0 });
+                const labels = sel.map((it) => it.label).join(", ");
+                addUser(d, `${labels} 체크했어요`);
+                setTimeout(async () => {
+                  addPhare(d, `${sel.length}개 선택했군요. 이제 각 상황에서 어떻게 대응할지 정해봐요.`);
+                  await delay(400);
+                  askNextIfthen(d, stateRef);
+                }, 400);
+              }}
+            />
+          )}
+
           {/* Typing indicator */}
           {state.isLoading && (
             <div className="flex items-end gap-2 animate-in fade-in duration-150">
@@ -681,64 +707,9 @@ interrupts 2-3개. 한국어.`;
     }
 
     d({ type: "SET_INTERRUPTS", interrupts });
-
-    // Render interrupt check cards
-    const checkHtml = interrupts
-      .map((it, i) => {
-        const col = typeColor[it.type] || "#D85A30";
-        const bg = typeBg[it.type] || "#FAECE7";
-        return `<div data-int-idx="${i}" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;border:1.5px solid rgba(0,0,0,0.09);background:white;margin-bottom:7px;cursor:pointer;">
-          <div style="width:18px;height:18px;border-radius:4px;border:1.5px solid rgba(0,0,0,0.16);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;background:white;"></div>
-          <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 7px;border-radius:20px;background:${bg};color:${col};">
-                <span style="width:5px;height:5px;border-radius:50%;background:${col};"></span>${escHtml(it.label)}
-              </span>
-            </div>
-            <div style="font-size:13px;color:#6B6760;line-height:1.5;">${escHtml(it.desc)}</div>
-          </div>
-        </div>`;
-      })
-      .join("");
-
-    addPhare(
-      d,
-      `<div id="int-check-list">${checkHtml}</div>
-       <button onclick="window.__confirmInterruptSelection && window.__confirmInterruptSelection()" style="width:100%;margin-top:10px;padding:11px;border-radius:10px;border:none;background:#1A1917;color:white;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;">선택 완료 →</button>`,
-      "interrupt-check"
-    );
-
     d({ type: "SET_STEP", step: "interrupt_check" });
-
-    // Set up global handler for the confirm button
-    (window as any).__confirmInterruptSelection = () =>
-      confirmInterruptSelection(d, sRef);
   }
 
-  function confirmInterruptSelection(
-    d: React.Dispatch<Action>,
-    sRef: React.MutableRefObject<ChatState>
-  ) {
-    const s = sRef.current;
-    // For simplicity, select all interrupts
-    const selected = s.interrupts;
-    d({ type: "SET_SELECTED_INTERRUPTS", selected });
-    const ifthen = selected.map((it) => ({ if: it.if, then: "" }));
-    d({ type: "SET_IFTHEN", ifthen });
-    d({ type: "SET_IFTHEN_INDEX", idx: 0 });
-
-    const labels = selected.map((it) => it.label).join(", ");
-    addUser(d, `${labels} 체크했어요`);
-
-    setTimeout(async () => {
-      addPhare(
-        d,
-        `${selected.length}개 선택했군요. 이제 각 상황에서 어떻게 대응할지 정해봐요.`
-      );
-      await delay(400);
-      askNextIfthen(d, sRef);
-    }, 400);
-  }
 
   function askNextIfthen(
     d: React.Dispatch<Action>,
@@ -1020,6 +991,134 @@ interrupts 2-3개. 한국어.`;
       d({ type: "RESET" });
     };
   }
+}
+
+// Interrupt check card component (React, not HTML string)
+function InterruptCheckCard({
+  interrupts,
+  onConfirm,
+}: {
+  interrupts: InterruptItem[];
+  onConfirm: (selected: InterruptItem[]) => void;
+}) {
+  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [customItems, setCustomItems] = useState<InterruptItem[]>([]);
+  const [customInput, setCustomInput] = useState("");
+
+  const allItems = [...interrupts, ...customItems];
+
+  const toggle = (idx: number) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const addCustom = () => {
+    if (!customInput.trim()) return;
+    const newItem: InterruptItem = {
+      type: "intrusion",
+      label: customInput.trim(),
+      desc: customInput.trim(),
+      if: `${customInput.trim()}이/가 생기면`,
+    };
+    setCustomItems((prev) => [...prev, newItem]);
+    // Auto-check the new item
+    setChecked((prev) => new Set([...prev, allItems.length]));
+    setCustomInput("");
+  };
+
+  const handleConfirm = () => {
+    const selected = allItems.filter((_, i) => checked.has(i));
+    onConfirm(selected);
+  };
+
+  return (
+    <div className="flex items-end gap-2 animate-in slide-in-from-bottom-1.5 fade-in duration-200 ease-out">
+      <Avatar className="w-7 h-7 flex-shrink-0">
+        <AvatarFallback className="bg-[#1A1917] text-white text-xs font-bold">P</AvatarFallback>
+      </Avatar>
+      <div className="max-w-[78%] px-3.5 py-2.5 rounded-2xl rounded-bl-sm bg-white border border-[rgba(0,0,0,0.09)] text-[#1A1917]">
+        <div className="flex flex-col gap-[7px]">
+          {allItems.map((it, i) => {
+            const col = typeColor[it.type] || "#D85A30";
+            const bg = typeBg[it.type] || "#FAECE7";
+            const isChecked = checked.has(i);
+            return (
+              <div
+                key={i}
+                onClick={() => toggle(i)}
+                className="flex items-start gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors duration-150 ease-out"
+                style={{
+                  border: `1.5px solid ${isChecked ? col : "rgba(0,0,0,0.09)"}`,
+                  background: "white",
+                }}
+              >
+                <div
+                  className="w-[18px] h-[18px] rounded flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors duration-150 ease-out"
+                  style={{
+                    background: isChecked ? col : "white",
+                    border: `1.5px solid ${isChecked ? col : "rgba(0,0,0,0.16)"}`,
+                    borderRadius: "4px",
+                  }}
+                >
+                  {isChecked && (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M2 5L4.2 7.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span
+                      className="inline-flex items-center gap-[5px] text-[11px] px-[7px] py-[2px] rounded-full"
+                      style={{ background: bg, color: col }}
+                    >
+                      <span className="w-[5px] h-[5px] rounded-full" style={{ background: col }} />
+                      {it.label}
+                    </span>
+                  </div>
+                  <div className="text-[13px] text-[#6B6760] leading-relaxed">{it.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Custom interrupt input */}
+        <div className="flex gap-[7px] mt-2">
+          <input
+            value={customInput}
+            onChange={(e) => setCustomInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && customInput.trim()) {
+                addCustom();
+                e.preventDefault();
+              }
+            }}
+            placeholder="직접 추가..."
+            className="flex-1 text-[13px] px-[11px] py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.16)] bg-[#F0EEE9] text-[#1A1917] outline-none"
+            style={{ fontSize: "16px" }}
+          />
+          <button
+            onClick={addCustom}
+            className="px-3 py-2 rounded-lg border border-dashed border-[rgba(0,0,0,0.16)] bg-[#F0EEE9] text-[13px] text-[#6B6760] cursor-pointer whitespace-nowrap"
+          >
+            추가
+          </button>
+        </div>
+
+        <button
+          onClick={handleConfirm}
+          className="w-full mt-2.5 py-[11px] rounded-[10px] border-none bg-[#1A1917] text-white text-sm font-semibold cursor-pointer min-h-[44px] transition-colors duration-150 ease-out hover:bg-[#333] active:scale-[0.98]"
+        >
+          선택 완료 →
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // Small capture input component
